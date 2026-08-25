@@ -1,75 +1,46 @@
-# Noctalia OMP Launcher Plugin
+# Oh My Pi Launcher
 
-An interactive, native bar launcher button for **[Oh My Pi (`omp`)](https://github.com/can1357/oh-my-pi)** built for the [Noctalia](https://noctalia.dev) desktop shell.
+An interactive, native bar launcher button for [Oh My Pi (`omp`)](https://github.com/can1357/oh-my-pi) with real-time background session detection, recent project tracking, and one-click session resume.
 
-Features a vector $\pi$ logo with a diagonal magenta-to-cyan gradient, real-time background session detection, recent project tracking, and one-click session resume.
+## Plugin
 
----
+| Field | Value |
+| --- | --- |
+| ID | `emiliovenegas/omp-launcher` |
+| Entries | Bar widget: `omp-launcher` |
 
-## ✨ Features
+## Requirements
 
-- **Geometric $\boldsymbol{\pi}$ Logo**: Vector-rendered $\pi$ glyph styled with a diagonal hot pink/magenta (`#F43F5E`) to sky blue (`#38BDF8`) linear gradient.
-- **Active Session Indicator**: Real-time status dot (`#38BDF8`) that lights up whenever an `omp` session is running in the background.
-- **Recent Project Intelligence**: Scans `~/.omp/agent/sessions/` to discover your most recently touched projects with relative timestamps.
-- **Dynamic Context Tooltip**: Hovering over the button displays active session counts, the latest project path, and quick shortcuts.
+- `omp` (Oh My Pi CLI) on `PATH`.
+- `python3` on `PATH`.
+- `pgrep` on `PATH`.
+- `bash` on `PATH`.
 
----
+The bundled launcher script (`omp-launch`) dynamically uses a graphical dmenu (`vicinae`, `fuzzel`, `rofi`, `wofi`, `bemenu`, or `dmenu`) when available. If no dmenu is present, it falls back to your terminal emulator (`$TERMINAL`, `xdg-terminal-exec`, `alacritty`, `kitty`, `ghostty`, `foot`, `wezterm`, `gnome-terminal`, `konsole`, or `xterm`).
 
-## 🖱️ Click Actions
+## Usage
 
-| Gesture | Action | Command Triggered |
-|---|---|---|
-| **Left Click** | Open interactive project picker via `vicinae dmenu` | `omp-launch` |
-| **Middle Click** | Resume the most recent project session immediately | `omp-launch --continue` |
-| **Right Click** | Launch a new OMP session in `$HOME` | `omp-launch --home` (`omp --allow-home`) |
-
----
-
-## 📦 Installation
-
-### Option 1: Via Noctalia CLI
-```bash
-noctalia msg plugins source add emiliovenegas git https://github.com/EmilioVenegas/noctalia-omp-launcher
-noctalia msg plugins enable emiliovenegas/omp-launcher
-```
-
-### Option 2: Local Installation
-Clone directly into your local Noctalia plugins directory:
-```bash
-git clone https://github.com/EmilioVenegas/noctalia-omp-launcher.git ~/.config/noctalia/plugins-local/omp-launcher
-noctalia msg plugins enable emilio/omp-launcher
-```
-
----
-
-## ⚙️ Configuration
-
-Place `omp-launcher` in your bar layout inside `~/.config/noctalia/config.toml` or `~/.local/state/noctalia/settings.toml`:
+Place the widget on your bar in `~/.config/noctalia/config.toml`:
 
 ```toml
 [bar.default]
-center = [ "workspaces", "clock", "omp" ]
+end = [ "...", "omp-launcher", "..." ]
 
-[widget.omp]
-capsule = true
+[widget.omp-launcher]
 type = "emiliovenegas/omp-launcher:omp-launcher"
+capsule = true
 ```
 
-Then reload Noctalia:
-```bash
-noctalia msg config-reload
-```
+### Click gestures
 
----
+- **Left-click** — opens the interactive project picker (dmenu or terminal fallback).
+- **Middle-click** — resumes the most recent project session directly (`omp --continue`).
+- **Right-click** — launches a new session in `$HOME` (`omp --allow-home`).
 
-## 🛠️ Companion Script (`omp-launch`)
+The capsule glows with an active session indicator dot whenever an `omp` session is running.
 
-The included companion script `bin/omp-launch` manages project resolution and terminal invocation:
-- Copy `bin/omp-launch` to your `$PATH` (e.g. `~/.local/bin/omp-launch`).
-- Ensure it is executable: `chmod +x ~/.local/bin/omp-launch`.
+## Notes
 
----
-
-## 📄 License
-
-MIT License © 2026 Emilio Venegas
+- **Session discovery**: reads project recency timestamps from `~/.omp/agent/sessions/`.
+- **Active detection**: scans local processes with `pgrep` every 10 seconds.
+- **Privacy**: no external network requests; all checks and launcher operations run entirely on the local machine.
