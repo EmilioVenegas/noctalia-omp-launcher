@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# omp-launch — pick a project directory, open Oh My Pi (omp) in a terminal.
+#
+# Backs the Noctalia `omp` bar button. Candidate list is omp's session
+# history from ~/.omp/agent/sessions/, ordered by newest session mtime,
+# plus git repos under ~/Documents and ~/Projects.
+#
+#   omp-launch              pick a directory, start a fresh omp session
+#   omp-launch --continue   pick a directory, resume its last session
+#   omp-launch --home       skip the picker, start in $HOME (--allow-home)
+#   omp-launch --list       print candidate directories and exit
+set -uo pipefail
+
+TERMINAL=(alacritty --class omp-agent)
+OMP_ARGS=()
+PROMPT='Open OMP in...'
+
+case "${1-}" in
+    --continue) OMP_ARGS+=(--continue); PROMPT='Resume OMP in...' ;;
+    --home)     MODE=home ;;
+    --list)     MODE=list ;;
+    '')         ;;
+    *)          printf 'omp-launch: unknown option %s\n' "$1" >&2; exit 2 ;;
+esac
+
+die() {
+    notify-send -a "Oh My Pi" -i dialog-error 'omp-launch' "$1" 2>/dev/null
+    printf 'omp-launch: %s\n' "$1" >&2
+    exit 1
+}
+
+collect_dirs() {
+    python3 - <<'PY'
+import os
+
+home = os.path.expanduser('~')
+sessions_dir = os.path.join(home, '.omp', 'agent', 'sessions')
+
+if os.path.isdir(sessions_dir):
+    for entry in os.scandir(sessions_dir):
+        if not entry.is_dir():
+            continue
+        slug = entry.name
+        if slug == "-tmp":
+            real_path = "/tmp"
+        elif slug.startswith("-"):
+            real_path = os.path.join(home, slug[1:].replace('-', '/'))
+            if not os.path.isdir(real_path):
+                parts = slug[1:].split('-')
+                curr = home
+                for part in parts:
+                    cand = os.path.join(curr, part)
+                    if os.path.isdir(cand):
+                        curr = cand
+                real_path = curr
+        else:
+            real_path = os.path.join(home, slug)
+
+        if os.path.isdir(real_path):
+            try:
+                mtime = entry.stat().st_mtime
+            except OSError:
+                mtime = 0.0
+            print(f"{mtime:.0f}\t{real_path}")
+PY
+
+    find "$HOME/Documents" "$HOME/Projects" -maxdepth 2 -name .git -type d \
+        -printf '0\t%h\n' 2>/dev/null
+}
+
+# Recency first; awk keeps first occurrence so history beats find sweep
+candidates() {
+    collect_dirs | sort -rn -k1,1 | awk -F'\t' '!seen[$2]++ { print $2 }'
+}
+
+shorten() { sed "s|^$HOME|~|"; }
+expand()  { sed "s|^~|$HOME|"; }
+
+if [[ ${MODE-} == list ]]; then
+    candidates | shorten
+    exit 0
+fi
+
+if [[ ${MODE-} == home ]]; then
+    target="$HOME"
+    OMP_ARGS+=(--allow-home)
+else
+    choice=$(candidates | shorten | vicinae dmenu \
+        -n 'Oh My Pi' -p "$PROMPT" --no-quick-look 2>/dev/null)
+    [[ -z $choice ]] && exit 0  # cancelled
+    target=$(printf '%s' "$choice" | expand)
+fi
+
+[[ -d $target ]] || die "not a directory: $target"
+
+exec "${TERMINAL[@]}" --working-directory "$target" \
+    -e fish -C "omp ${OMP_ARGS[*]}"
